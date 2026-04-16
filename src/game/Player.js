@@ -15,7 +15,7 @@ export default class Player {
 
         this.velocityY = 0;
         this.gravity = 1200;
-        this.jumpForce = -450;
+        this.jumpForce = -500;
 
         this.isGrounded = true;
     }

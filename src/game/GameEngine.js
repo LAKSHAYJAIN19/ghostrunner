@@ -1,5 +1,7 @@
 import Player from "./Player";
 import ObstacleManager from "./ObstacleManager";
+import GhostRecorder from "../ghost/GhostRecorder";
+import AIGhostPlayer from "../ghost/AIGhostPlayer";
 import HUD from "../ui/HUD";
 
 export default class GameEngine {
@@ -21,6 +23,14 @@ export default class GameEngine {
         this.obstacles = new ObstacleManager(this);
         this.hud = new HUD(this);
 
+        this.recorder = new GhostRecorder(this);
+        this.aiGhosts = [];
+        this.ghostCount = 5;
+
+        const saved = localStorage.getItem("ghostRuns");
+        if (saved) {
+            this.ghostRuns = JSON.parse(saved);
+        }
         this.setupControls();
     }
 
@@ -45,6 +55,9 @@ export default class GameEngine {
                 this.startGame();
             } else if (this.gameState === "RUNNING") {
                 this.player.jump();
+
+                // ✅ RECORD INPUT
+                this.recorder.record("jump");
             } else if (this.gameState === "GAME_OVER") {
                 this.restart();
             }
@@ -60,13 +73,30 @@ export default class GameEngine {
     startGame() {
         this.gameState = "RUNNING";
         this.score = 0;
+
+        this.aiGhosts = [];
+
+        for (let i = 0; i < this.ghostCount; i++) {
+            const ghost = new AIGhostPlayer(this);
+
+            // Slight starting offset (so they don't overlap)
+            ghost.x -= (i + 1) * 25;
+
+            // Add variation
+            ghost.speedMultiplier = 0.95 + Math.random() * 0.2; // 0.95 → 1.15
+            ghost.mistakeChance = 0.1 + Math.random() * 0.3;    // 10% - 40%
+            ghost.reactionDistance = 100 + Math.random() * 80;
+
+            this.aiGhosts.push(ghost);
+        }
     }
 
     restart() {
         this.player.reset();
         this.obstacles.reset();
         this.score = 0;
-        this.gameState = "RUNNING";
+
+        this.startGame();
     }
 
     start() {
@@ -89,8 +119,28 @@ export default class GameEngine {
         this.player.update(dt);
         this.obstacles.update(dt);
 
-        if (this.obstacles.checkCollision(this.player)) {
+        this.aiGhosts.forEach((ghost) => ghost.update(dt));
+
+        const playerDead = this.obstacles.checkCollision(this.player);
+
+        // Check each ghost
+        this.aiGhosts = this.aiGhosts.filter((ghost) => {
+            const dead = this.obstacles.checkCollision(ghost);
+            return !dead; // remove dead ghosts
+        });
+
+        // Lose condition
+        if (playerDead) {
             this.gameState = "GAME_OVER";
+            this.result = "LOSE";
+            return;
+        }
+
+        // Win condition (all ghosts dead)
+        if (this.aiGhosts.length === 0) {
+            this.gameState = "GAME_OVER";
+            this.result = "WIN";
+            return;
         }
 
         this.score += dt * 10;
@@ -100,11 +150,16 @@ export default class GameEngine {
         this.ctx.clearRect(0, 0, this.width, this.height);
 
         // Ground
-        this.ctx.fillStyle = "#333";
+        this.ctx.fillStyle = "#222";
         this.ctx.fillRect(0, this.height - 20, this.width, 20);
 
+        this.aiGhosts.forEach((ghost) => {
+            ghost.x = Math.max(0, Math.min(this.width, ghost.x));
+        });
+        this.aiGhosts.forEach((ghost) => ghost.draw(this.ctx));
         this.player.draw(this.ctx);
         this.obstacles.draw(this.ctx);
         this.hud.draw(this.ctx);
+
     }
 }

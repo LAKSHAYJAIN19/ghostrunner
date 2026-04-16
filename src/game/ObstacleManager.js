@@ -13,7 +13,10 @@ export default class ObstacleManager {
     }
 
     spawn() {
-        const height = 40 + Math.random() * 40;
+        // Max jump height calculation (approx safe value)
+        const maxHeight = 60; // safe jumpable height
+
+        const height = 30 + Math.random() * maxHeight;
 
         this.obstacles.push({
             x: this.game.width,
@@ -29,6 +32,7 @@ export default class ObstacleManager {
         if (this.spawnTimer > this.spawnInterval) {
             this.spawn();
             this.spawnTimer = 0;
+            this.spawnInterval = 1 + Math.random() * 1.2;
         }
 
         this.obstacles.forEach((obs) => {
